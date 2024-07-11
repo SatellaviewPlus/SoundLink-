@@ -30,7 +30,7 @@
     
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-app.js";
-        import { getDatabase, ref, onValue, push } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-database.js";
+        import { getDatabase, ref, onValue, set, push } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyAo1x1x1F-zZU5uZDgg24N4gVCL9Xl9QmA",
@@ -56,6 +56,7 @@
                 const audioElement = document.createElement('audio');
                 audioElement.srcObject = event.streams[0];
                 audioElement.play();
+                document.body.appendChild(audioElement);
             };
 
             // Retrieve and set the offer
@@ -79,13 +80,22 @@
             // Retrieve and add ICE candidates
             const candidatesRef = ref(database, 'candidates');
             onValue(candidatesRef, snapshot => {
-                const candidates = snapshot.val();
-                if (candidates) {
-                    Object.values(candidates).forEach(candidate => {
-                        peerConnection.addIceCandidate(new RTCIceCandidate(JSON.parse(candidate)));
-                    });
-                }
+                snapshot.forEach(childSnapshot => {
+                    const candidate = JSON.parse(childSnapshot.val());
+                    peerConnection.addIceCandidate(new RTCIceCandidate(candidate))
+                        .catch(error => {
+                            console.error('Error adding ICE candidate:', error);
+                        });
+                });
             });
+
+            // Send ICE candidates to the database
+            peerConnection.onicecandidate = event => {
+                if (event.candidate) {
+                    const candidatesRef = ref(database, 'receiverCandidates');
+                    push(candidatesRef, JSON.stringify(event.candidate));
+                }
+            };
         }
 
         initializeWebRTC();
