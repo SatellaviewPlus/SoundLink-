@@ -2,81 +2,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SoundLink+ Streamer</title>
+    <title>SoundLink+ Receiver</title>
     <script src="https://www.gstatic.com/firebasejs/9.2.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.2.0/firebase-database-compat.js"></script>
+    <style>
+        body {
+            background: url('your_background.gif') no-repeat center center fixed; /* Replace with your gif URL */
+            background-size: cover;
+            color: white;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+        audio {
+            margin-top: 20px;
+        }
+    </style>
 </head>
 <body>
-    <h1>Audio Streamer</h1>
-    
-    <!-- Password input field -->
-    <label for="password">Enter Password:</label>
-    <input type="password" id="password">
-    <button onclick="checkPassword()">Enter</button>
-
-    <!-- Streaming controls initially hidden -->
-    <div id="streamingControls" style="display: none;">
-        <button onclick="playAudio('mp3/intro.mp3')">Intro</button>
-        <button onclick="playAudio('audio2.mp3')">Play Audio 2</button>
-
-        <hr>
-
-        <label>
-            <input type="checkbox" id="desktopAudioCheckbox"> Include Desktop Audio
-        </label>
-
-        <hr>
-
-        <h2>Microphone Audio</h2>
-        <button onclick="startMicrophone()">Start Microphone</button>
-        <button onclick="stopMicrophone()">Stop Microphone</button>
-        <hr>
-
-        <button onclick="startStreaming()">Start Streaming</button>
-        <button onclick="stopStreaming()">Stop Streaming</button>
-    </div>
+    <h1>Audio Receiver</h1>
+    <audio id="receivedAudio" controls autoplay></audio>
     
     <script>
-        let desktopAudioIncluded = false;
-        let microphoneStream;
-        let audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        let locked = false;
-        let password = 'DDDev22';
         let peerConnection;
         let database;
 
         const firebaseConfig = {
-  apiKey: "AIzaSyAo1x1x1F-zZU5uZDgg24N4gVCL9Xl9QmA",
-  authDomain: "soundlink-plus.firebaseapp.com",
-  projectId: "soundlink-plus",
-  storageBucket: "soundlink-plus.appspot.com",
-  messagingSenderId: "930608446048",
-  appId: "1:930608446048:web:dc7ae85f5a60d60bc96105",
-  measurementId: "G-007FXMK57J"
-};
-        {
-  "rules": {
-    ".read": "true",
-    ".write": "true"
-  }
-}
-
-
-        function checkPassword() {
-            let passwordInput = document.getElementById('password').value;
-            if (passwordInput === password) {
-                if (!locked) {
-                    locked = true; // Lock the streamer
-                    document.getElementById('streamingControls').style.display = 'block';
-                    console.log('Password correct. Access granted.');
-                    initializeWebRTC(); // Initialize WebRTC once password is correct
-                } else {
-                    alert('Streamer is already in use. Please try again later.');
-                }
-            } else {
-                alert('Incorrect password. Access denied.');
-            }
-        }
+            apiKey: "AIzaSyAo1x1x1F-zZU5uZDgg24N4gVCL9Xl9QmA",
+            authDomain: "soundlink-plus.firebaseapp.com",
+            projectId: "soundlink-plus",
+            storageBucket: "soundlink-plus.appspot.com",
+            messagingSenderId: "930608446048",
+            appId: "1:930608446048:web:dc7ae85f5a60d60bc96105",
+            measurementId: "G-007FXMK57J"
+        };
 
         function initializeFirebase() {
             // Initialize Firebase
@@ -89,11 +51,6 @@
             const configuration = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
             peerConnection = new RTCPeerConnection(configuration);
 
-            // Add microphone stream to peer connection
-            if (microphoneStream) {
-                microphoneStream.getTracks().forEach(track => peerConnection.addTrack(track, microphoneStream));
-            }
-
             // Handle ICE candidate events
             peerConnection.onicecandidate = event => {
                 if (event.candidate) {
@@ -102,56 +59,35 @@
                 }
             };
 
-            // Create offer to start communication
-            peerConnection.createOffer()
-                .then(offer => peerConnection.setLocalDescription(offer))
-                .then(() => {
-                    database.ref('offer').set(JSON.stringify(peerConnection.localDescription));
-                    console.log('Offer created:', peerConnection.localDescription);
-                })
-                .catch(error => {
-                    console.error('Error creating offer:', error);
-                });
+            // Handle track event to receive audio stream
+            peerConnection.ontrack = event => {
+                const audioElement = document.getElementById('receivedAudio');
+                audioElement.srcObject = event.streams[0];
+            };
+
+            // Get the offer from Firebase
+            database.ref('offer').once('value').then(snapshot => {
+                const offer = JSON.parse(snapshot.val());
+                peerConnection.setRemoteDescription(new RTCSessionDescription(offer))
+                    .then(() => peerConnection.createAnswer())
+                    .then(answer => peerConnection.setLocalDescription(answer))
+                    .then(() => {
+                        database.ref('answer').set(JSON.stringify(peerConnection.localDescription));
+                        console.log('Answer created:', peerConnection.localDescription);
+                    })
+                    .catch(error => {
+                        console.error('Error creating answer:', error);
+                    });
+            });
+
+            // Listen for ICE candidates from the streamer
+            database.ref('candidates').on('child_added', snapshot => {
+                const candidate = new RTCIceCandidate(JSON.parse(snapshot.val()));
+                peerConnection.addIceCandidate(candidate);
+            });
         }
 
-        function startMicrophone() {
-            navigator.mediaDevices.getUserMedia({ audio: true })
-                .then(stream => {
-                    microphoneStream = stream;
-                    console.log('Microphone access granted');
-                })
-                .catch(error => {
-                    console.error('Error accessing microphone:', error);
-                });
-        }
-
-        function stopMicrophone() {
-            if (microphoneStream) {
-                microphoneStream.getTracks().forEach(track => track.stop());
-                console.log('Microphone stopped');
-            }
-        }
-
-        function playAudio(filename) {
-            let audio = new Audio(filename);
-            audio.play();
-        }
-
-        function startStreaming() {
-            // WebRTC streaming is handled in initializeWebRTC
-        }
-
-        function stopStreaming() {
-            // Implement stop streaming logic if needed
-            peerConnection.close();
-            locked = false; // Unlock the streamer
-            database.ref('offer').remove();
-            database.ref('candidates').remove();
-        }
-
-        document.getElementById('desktopAudioCheckbox').addEventListener('change', function() {
-            desktopAudioIncluded = this.checked;
-        });
+        initializeWebRTC();
     </script>
 </body>
 </html>
