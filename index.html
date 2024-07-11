@@ -4,8 +4,78 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SoundLink+ Receiver</title>
-    <script src="https://www.gstatic.com/firebasejs/9.2.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.2.0/firebase-database-compat.js"></script>
+    <script type="module">
+      // Import the functions you need from the SDKs you need
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-app.js";
+      import { getDatabase, ref, onValue, push, get } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-database.js";
+
+      // Your web app's Firebase configuration
+      const firebaseConfig = {
+        apiKey: "AIzaSyAo1x1x1F-zZU5uZDgg24N4gVCL9Xl9QmA",
+        authDomain: "soundlink-plus.firebaseapp.com",
+        projectId: "soundlink-plus",
+        storageBucket: "soundlink-plus.appspot.com",
+        messagingSenderId: "930608446048",
+        appId: "1:930608446048:web:dc7ae85f5a60d60bc96105",
+        measurementId: "G-007FXMK57J"
+      };
+
+      // Initialize Firebase
+      const app = initializeApp(firebaseConfig);
+      const database = getDatabase(app);
+
+      let peerConnection;
+
+      function initializeWebRTC() {
+        const configuration = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+        peerConnection = new RTCPeerConnection(configuration);
+
+        // Handle ICE candidate events
+        peerConnection.onicecandidate = event => {
+          if (event.candidate) {
+            console.log('New ICE candidate:', event.candidate);
+            push(ref(database, 'candidates'), JSON.stringify(event.candidate));
+          }
+        };
+
+        // Handle track event to receive audio stream
+        peerConnection.ontrack = event => {
+          const audioElement = document.getElementById('receivedAudio');
+          audioElement.srcObject = event.streams[0];
+          console.log('Received audio stream');
+        };
+
+        // Get the offer from Firebase
+        get(ref(database, 'offer')).then(snapshot => {
+          if (snapshot.exists()) {
+            const offer = JSON.parse(snapshot.val());
+            peerConnection.setRemoteDescription(new RTCSessionDescription(offer))
+              .then(() => peerConnection.createAnswer())
+              .then(answer => peerConnection.setLocalDescription(answer))
+              .then(() => {
+                set(ref(database, 'answer'), JSON.stringify(peerConnection.localDescription));
+                console.log('Answer created:', peerConnection.localDescription);
+              })
+              .catch(error => {
+                console.error('Error creating answer:', error);
+              });
+          } else {
+            console.log('No offer found');
+          }
+        });
+
+        // Listen for ICE candidates from the streamer
+        onValue(ref(database, 'candidates'), snapshot => {
+          snapshot.forEach(childSnapshot => {
+            const candidate = new RTCIceCandidate(JSON.parse(childSnapshot.val()));
+            peerConnection.addIceCandidate(candidate);
+          });
+        });
+      }
+
+      initializeWebRTC();
+
+    </script>
     <style>
         body {
             background: url('your_background.gif') no-repeat center center fixed; /* Replace with your gif URL */
@@ -26,68 +96,5 @@
 <body>
     <h1>Audio Receiver</h1>
     <audio id="receivedAudio" controls autoplay></audio>
-    
-    <script>
-        let peerConnection;
-        let database;
-
-        const firebaseConfig = {
-            apiKey: "AIzaSyAo1x1x1F-zZU5uZDgg24N4gVCL9Xl9QmA",
-            authDomain: "soundlink-plus.firebaseapp.com",
-            projectId: "soundlink-plus",
-            storageBucket: "soundlink-plus.appspot.com",
-            messagingSenderId: "930608446048",
-            appId: "1:930608446048:web:dc7ae85f5a60d60bc96105",
-            measurementId: "G-007FXMK57J"
-        };
-
-        function initializeFirebase() {
-            // Initialize Firebase
-            const app = firebase.initializeApp(firebaseConfig);
-            database = firebase.database(app);
-            console.log('Firebase initialized');
-        }
-
-        function initializeWebRTC() {
-            initializeFirebase();
-            const configuration = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
-            peerConnection = new RTCPeerConnection(configuration);
-
-            // Handle ICE candidate events
-            peerConnection.onicecandidate = event => {
-                if (event.candidate) {
-                    console.log('New ICE candidate:', event.candidate);
-                    database.ref('candidates').push(JSON.stringify(event.candidate));
-                }
-            };
-
-            // Handle track event to receive audio stream
-            peerConnection.ontrack = event => {
-                const audioElement = document.getElementById('receivedAudio');
-                audioElement.srcObject = event.streams[0];
-                console.log('Received audio stream');
-            };
-
-            // Get the offer from Firebase
-            database.ref('offer').once('value').then(snapshot => {
-                const offer = JSON.parse(snapshot.val());
-                peerConnection.setRemoteDescription(new RTCSessionDescription(offer))
-                    .then(() => peerConnection.createAnswer())
-                    .then(answer => peerConnection.setLocalDescription(answer))
-                    .then(() => {
-                        database.ref('answer').set(JSON.stringify(peerConnection.localDescription));
-                        console.log('Answer created:', peerConnection.localDescription);
-                    })
-                    .catch(error => {
-                        console.error('Error creating answer:', error);
-                    });
-            });
-
-            // Listen for ICE candidates from the streamer
-            database.ref('candidates').on('child_added', snapshot => {
-                const candidate = new RTCIceCandidate(JSON.parse(snapshot.val()));
-                peerConnection.addIceCandidate(candidate);
-            });
-        }
-
-        initializeWeb
+</body>
+</html>
