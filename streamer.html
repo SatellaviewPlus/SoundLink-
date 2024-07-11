@@ -60,6 +60,7 @@
         let locked = false;
         let password = 'DDDev22';
         let peerConnection;
+        let audioStream;
 
         function checkPassword() {
             let passwordInput = document.getElementById('password').value;
@@ -81,9 +82,9 @@
             const configuration = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
             peerConnection = new RTCPeerConnection(configuration);
 
-            // Add microphone stream to peer connection
-            if (microphoneStream) {
-                microphoneStream.getTracks().forEach(track => peerConnection.addTrack(track, microphoneStream));
+            // Add combined audio stream to peer connection
+            if (audioStream) {
+                audioStream.getTracks().forEach(track => peerConnection.addTrack(track, audioStream));
             }
 
             // Handle ICE candidate events
@@ -112,6 +113,7 @@
                 .then(stream => {
                     microphoneStream = stream;
                     console.log('Microphone access granted');
+                    combineStreams();
                 })
                 .catch(error => {
                     console.error('Error accessing microphone:', error);
@@ -125,8 +127,26 @@
             }
         }
 
+        function combineStreams() {
+            if (microphoneStream) {
+                audioStream = audioContext.createMediaStreamDestination();
+                const source = audioContext.createMediaStreamSource(microphoneStream);
+                source.connect(audioStream);
+            }
+        }
+
         function playAudio(filename) {
             let audio = new Audio(filename);
+            audio.onplay = () => {
+                const audioSource = audioContext.createMediaElementSource(audio);
+                audioSource.connect(audioContext.destination);
+                if (audioStream) {
+                    audioSource.connect(audioStream);
+                } else {
+                    audioStream = audioContext.createMediaStreamDestination();
+                    audioSource.connect(audioStream);
+                }
+            };
             audio.play();
         }
 
