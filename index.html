@@ -1,0 +1,80 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Streamer</title>
+</head>
+<body>
+    <h1>Audio Streamer</h1>
+    
+    <button onclick="playAudio('audio1.mp3')">Play Audio 1</button>
+    <button onclick="playAudio('audio2.mp3')">Play Audio 2</button>
+    
+    <hr>
+    
+    <label>
+        <input type="checkbox" id="desktopAudioCheckbox"> Include Desktop Audio
+    </label>
+    
+    <hr>
+    
+    <h2>Microphone Audio</h2>
+    <button onclick="startMicrophone()">Start Microphone</button>
+    <button onclick="stopMicrophone()">Stop Microphone</button>
+    <hr>
+    
+    <button onclick="startStreaming()">Start Streaming</button>
+    <button onclick="stopStreaming()">Stop Streaming</button>
+    
+    <script>
+        let desktopAudioIncluded = false;
+        let microphoneStream;
+        let audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+        function startMicrophone() {
+            navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(stream => {
+                    microphoneStream = stream;
+                    console.log('Microphone access granted');
+                })
+                .catch(error => {
+                    console.error('Error accessing microphone:', error);
+                });
+        }
+
+        function stopMicrophone() {
+            if (microphoneStream) {
+                microphoneStream.getTracks().forEach(track => track.stop());
+                console.log('Microphone stopped');
+            }
+        }
+
+        function playAudio(filename) {
+            let audio = new Audio(filename);
+            audio.play();
+        }
+
+        function startStreaming() {
+            // Implementing WebSocket logic to stream audio
+            let socket = new WebSocket('wss://');
+            socket.onopen = function(event) {
+                console.log('WebSocket connection opened');
+                // Start streaming audio here (microphone and optionally desktop audio)
+            };
+            socket.onclose = function(event) {
+                console.log('WebSocket connection closed');
+                // Clean up streaming operations if needed
+            };
+        }
+
+        function stopStreaming() {
+            // Stop WebSocket streaming
+            // Close WebSocket connection if necessary
+        }
+
+        document.getElementById('desktopAudioCheckbox').addEventListener('change', function() {
+            desktopAudioIncluded = this.checked;
+        });
+    </script>
+</body>
+</html>
