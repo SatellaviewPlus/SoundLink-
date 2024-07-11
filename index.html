@@ -1,4 +1,5 @@
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,7 +8,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.2.0/firebase-database-compat.js"></script>
     <style>
         body {
-            background: url('template.gif') no-repeat center center fixed; /* Replace with your gif URL */
+            background: url('your_background.gif') no-repeat center center fixed; /* Replace with your gif URL */
             background-size: cover;
             color: white;
             text-align: center;
@@ -23,6 +24,7 @@
     </style>
 </head>
 <body>
+    <h1>Audio Receiver</h1>
     <audio id="receivedAudio" controls autoplay></audio>
     
     <script>
@@ -30,22 +32,14 @@
         let database;
 
         const firebaseConfig = {
-  apiKey: "AIzaSyAo1x1x1F-zZU5uZDgg24N4gVCL9Xl9QmA",
-  authDomain: "soundlink-plus.firebaseapp.com",
-  projectId: "soundlink-plus",
-  storageBucket: "soundlink-plus.appspot.com",
-  messagingSenderId: "930608446048",
-  appId: "1:930608446048:web:dc7ae85f5a60d60bc96105",
-  measurementId: "G-007FXMK57J"
-};
-
-        {
-  "rules": {
-    ".read": "true",
-    ".write": "true"
-  }
-}
-
+            apiKey: "AIzaSyAo1x1x1F-zZU5uZDgg24N4gVCL9Xl9QmA",
+            authDomain: "soundlink-plus.firebaseapp.com",
+            projectId: "soundlink-plus",
+            storageBucket: "soundlink-plus.appspot.com",
+            messagingSenderId: "930608446048",
+            appId: "1:930608446048:web:dc7ae85f5a60d60bc96105",
+            measurementId: "G-007FXMK57J"
+        };
 
         function initializeFirebase() {
             // Initialize Firebase
@@ -58,40 +52,43 @@
             const configuration = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
             peerConnection = new RTCPeerConnection(configuration);
 
-            peerConnection.ontrack = event => {
-                console.log('Received remote stream:', event.streams[0]);
-                document.getElementById('receivedAudio').srcObject = event.streams[0];
+            // Handle ICE candidate events
+            peerConnection.onicecandidate = event => {
+                if (event.candidate) {
+                    console.log('New ICE candidate:', event.candidate);
+                    database.ref('candidates').push(JSON.stringify(event.candidate));
+                }
             };
 
-            database.ref('offer').on('value', snapshot => {
-                const offer = snapshot.val();
-                if (offer) {
-                    peerConnection.setRemoteDescription(new RTCSessionDescription(JSON.parse(offer)))
-                        .then(() => peerConnection.createAnswer())
-                        .then(answer => peerConnection.setLocalDescription(answer))
-                        .then(() => {
-                            database.ref('answer').set(JSON.stringify(peerConnection.localDescription));
-                            console.log('Answer created:', peerConnection.localDescription);
-                        })
-                        .catch(error => {
-                            console.error('Error creating answer:', error);
-                        });
-                }
+            // Handle track event to receive audio stream
+            peerConnection.ontrack = event => {
+                const audioElement = document.getElementById('receivedAudio');
+                audioElement.srcObject = event.streams[0];
+            };
+
+            // Get the offer from Firebase
+            database.ref('offer').once('value').then(snapshot => {
+                const offer = JSON.parse(snapshot.val());
+                peerConnection.setRemoteDescription(new RTCSessionDescription(offer))
+                    .then(() => peerConnection.createAnswer())
+                    .then(answer => peerConnection.setLocalDescription(answer))
+                    .then(() => {
+                        database.ref('answer').set(JSON.stringify(peerConnection.localDescription));
+                        console.log('Answer created:', peerConnection.localDescription);
+                    })
+                    .catch(error => {
+                        console.error('Error creating answer:', error);
+                    });
             });
 
+            // Listen for ICE candidates from the streamer
             database.ref('candidates').on('child_added', snapshot => {
-                const candidate = snapshot.val();
-                if (candidate) {
-                    peerConnection.addIceCandidate(new RTCIceCandidate(JSON.parse(candidate)))
-                        .catch(error => {
-                            console.error('Error adding ICE candidate:', error);
-                        });
-                }
+                const candidate = new RTCIceCandidate(JSON.parse(snapshot.val()));
+                peerConnection.addIceCandidate(candidate);
             });
         }
 
-        // Initialize WebRTC on page load
-        window.onload = initializeWebRTC;
+        initializeWebRTC();
     </script>
 </body>
 </html>
