@@ -5,7 +5,7 @@
     <title>SoundLink+ Streamer</title>
 </head>
 <body>
-    <h1>SoundLink+ Streamer</h1>
+    <h1>Audio Streamer</h1>
     
     <!-- Password input field -->
     <label for="password">Enter Password:</label>
@@ -38,13 +38,19 @@
         let desktopAudioIncluded = false;
         let microphoneStream;
         let audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        let locked = false;
         let password = 'DDDev22';
 
         function checkPassword() {
             let passwordInput = document.getElementById('password').value;
             if (passwordInput === password) {
-                document.getElementById('streamingControls').style.display = 'block';
-                console.log('Password correct. Access granted.');
+                if (!locked) {
+                    locked = true; // Lock the streamer
+                    document.getElementById('streamingControls').style.display = 'block';
+                    console.log('Password correct. Access granted.');
+                } else {
+                    alert('Streamer is already in use. Please try again later.');
+                }
             } else {
                 alert('Incorrect password. Access denied.');
             }
@@ -82,6 +88,7 @@
             socket.onclose = function(event) {
                 console.log('WebSocket connection closed');
                 // Clean up streaming operations if needed
+                locked = false; // Unlock the streamer
             };
         }
 
