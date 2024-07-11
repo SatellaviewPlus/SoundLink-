@@ -1,0 +1,33 @@
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Receiver</title>
+</head>
+<body>
+    <h1>Audio Receiver</h1>
+    
+    <audio controls id="audioPlayer">
+        Your browser does not support the audio element.
+    </audio>
+    
+    <script>
+        let audioPlayer = document.getElementById('audioPlayer');
+        let socket = new WebSocket('wss://your-websocket-server-url');
+
+        socket.onmessage = function(event) {
+            let audioBlob = event.data;
+            let audioUrl = URL.createObjectURL(audioBlob);
+            audioPlayer.src = audioUrl;
+        };
+
+        socket.onerror = function(event) {
+            console.error('WebSocket error:', event);
+        };
+
+        socket.onclose = function() {
+            console.log('WebSocket connection closed');
+        };
+    </script>
+</body>
+</html>
