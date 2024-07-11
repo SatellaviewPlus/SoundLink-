@@ -2,34 +2,53 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Audio Streamer</title>
+    <title>SoundLink+ Streamer</title>
 </head>
 <body>
-    <h1>Audio Streamer</h1>
+    <h1>SoundLink+ Streamer</h1>
     
-    <button onclick="playAudio('audio1.mp3')">Play Audio 1</button>
-    <button onclick="playAudio('audio2.mp3')">Play Audio 2</button>
-    
-    <hr>
-    
-    <label>
-        <input type="checkbox" id="desktopAudioCheckbox"> Include Desktop Audio
-    </label>
-    
-    <hr>
-    
-    <h2>Microphone Audio</h2>
-    <button onclick="startMicrophone()">Start Microphone</button>
-    <button onclick="stopMicrophone()">Stop Microphone</button>
-    <hr>
-    
-    <button onclick="startStreaming()">Start Streaming</button>
-    <button onclick="stopStreaming()">Stop Streaming</button>
+    <!-- Password input field -->
+    <label for="password">Enter Password:</label>
+    <input type="password" id="password">
+    <button onclick="checkPassword()">Enter</button>
+
+    <!-- Streaming controls initially hidden -->
+    <div id="streamingControls" style="display: none;">
+        <button onclick="playAudio('mp3/intro.mp3')">Intro</button>
+        <button onclick="playAudio('audio2.mp3')">Play Audio 2</button>
+
+        <hr>
+
+        <label>
+            <input type="checkbox" id="desktopAudioCheckbox"> Include Desktop Audio
+        </label>
+
+        <hr>
+
+        <h2>Microphone Audio</h2>
+        <button onclick="startMicrophone()">Start Microphone</button>
+        <button onclick="stopMicrophone()">Stop Microphone</button>
+        <hr>
+
+        <button onclick="startStreaming()">Start Streaming</button>
+        <button onclick="stopStreaming()">Stop Streaming</button>
+    </div>
     
     <script>
         let desktopAudioIncluded = false;
         let microphoneStream;
         let audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        let password = 'DDDev22';
+
+        function checkPassword() {
+            let passwordInput = document.getElementById('password').value;
+            if (passwordInput === password) {
+                document.getElementById('streamingControls').style.display = 'block';
+                console.log('Password correct. Access granted.');
+            } else {
+                alert('Incorrect password. Access denied.');
+            }
+        }
 
         function startMicrophone() {
             navigator.mediaDevices.getUserMedia({ audio: true })
@@ -55,8 +74,7 @@
         }
 
         function startStreaming() {
-            // Implementing WebSocket logic to stream audio
-            let socket = new WebSocket('wss://');
+            let socket = new WebSocket('wss://your_websocket_server_url'); // Replace with your WebSocket server URL
             socket.onopen = function(event) {
                 console.log('WebSocket connection opened');
                 // Start streaming audio here (microphone and optionally desktop audio)
@@ -68,8 +86,7 @@
         }
 
         function stopStreaming() {
-            // Stop WebSocket streaming
-            // Close WebSocket connection if necessary
+            // Implement stop streaming logic if needed
         }
 
         document.getElementById('desktopAudioCheckbox').addEventListener('change', function() {
