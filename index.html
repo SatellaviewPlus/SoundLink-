@@ -3,6 +3,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SoundLink+ Streamer</title>
+    <script src="https://www.gstatic.com/firebasejs/9.2.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.2.0/firebase-database-compat.js"></script>
 </head>
 <body>
     <h1>Audio Streamer</h1>
@@ -40,6 +42,19 @@
         let audioContext = new (window.AudioContext || window.webkitAudioContext)();
         let locked = false;
         let password = 'DDDev22';
+        let peerConnection;
+        let database;
+
+        const firebaseConfig = {
+            // Your Firebase config object here
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_AUTH_DOMAIN",
+            databaseURL: "YOUR_DATABASE_URL",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_STORAGE_BUCKET",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
 
         function checkPassword() {
             let passwordInput = document.getElementById('password').value;
@@ -48,12 +63,49 @@
                     locked = true; // Lock the streamer
                     document.getElementById('streamingControls').style.display = 'block';
                     console.log('Password correct. Access granted.');
+                    initializeWebRTC(); // Initialize WebRTC once password is correct
                 } else {
                     alert('Streamer is already in use. Please try again later.');
                 }
             } else {
                 alert('Incorrect password. Access denied.');
             }
+        }
+
+        function initializeFirebase() {
+            // Initialize Firebase
+            const app = firebase.initializeApp(firebaseConfig);
+            database = firebase.database(app);
+        }
+
+        function initializeWebRTC() {
+            initializeFirebase();
+            const configuration = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+            peerConnection = new RTCPeerConnection(configuration);
+
+            // Add microphone stream to peer connection
+            if (microphoneStream) {
+                microphoneStream.getTracks().forEach(track => peerConnection.addTrack(track, microphoneStream));
+            }
+
+            // Handle ICE candidate events
+            peerConnection.onicecandidate = event => {
+                if (event.candidate) {
+                    console.log('New ICE candidate:', event.candidate);
+                    database.ref('candidates').push(JSON.stringify(event.candidate));
+                }
+            };
+
+            // Create offer to start communication
+            peerConnection.createOffer()
+                .then(offer => peerConnection.setLocalDescription(offer))
+                .then(() => {
+                    database.ref('offer').set(JSON.stringify(peerConnection.localDescription));
+                    console.log('Offer created:', peerConnection.localDescription);
+                })
+                .catch(error => {
+                    console.error('Error creating offer:', error);
+                });
         }
 
         function startMicrophone() {
@@ -80,20 +132,15 @@
         }
 
         function startStreaming() {
-            let socket = new WebSocket('wss://your_websocket_server_url'); // Replace with your WebSocket server URL
-            socket.onopen = function(event) {
-                console.log('WebSocket connection opened');
-                // Start streaming audio here (microphone and optionally desktop audio)
-            };
-            socket.onclose = function(event) {
-                console.log('WebSocket connection closed');
-                // Clean up streaming operations if needed
-                locked = false; // Unlock the streamer
-            };
+            // WebRTC streaming is handled in initializeWebRTC
         }
 
         function stopStreaming() {
             // Implement stop streaming logic if needed
+            peerConnection.close();
+            locked = false; // Unlock the streamer
+            database.ref('offer').remove();
+            database.ref('candidates').remove();
         }
 
         document.getElementById('desktopAudioCheckbox').addEventListener('change', function() {
