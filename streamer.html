@@ -1,32 +1,41 @@
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SoundLink+ Receiver</title>
+    <title>SoundLink+ Streamer</title>
     <script src="https://www.gstatic.com/firebasejs/9.2.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.2.0/firebase-database-compat.js"></script>
-    <style>
-        body {
-            background: url('your_background.gif') no-repeat center center fixed; /* Replace with your gif URL */
-            background-size: cover;
-            color: white;
-            text-align: center;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            height: 100vh;
-            margin: 0;
-        }
-        audio {
-            margin-top: 20px;
-        }
-    </style>
 </head>
 <body>
-    <h1>Audio Receiver</h1>
-    <audio id="receivedAudio" controls autoplay></audio>
+    <h1>Audio Streamer</h1>
+
+    <!-- Streaming controls -->
+    <div id="streamingControls">
+        <button onclick="playAudio('mp3/intro.mp3')">Intro</button>
+        <button onclick="playAudio('audio2.mp3')">Play Audio 2</button>
+
+        <hr>
+
+        <label>
+            <input type="checkbox" id="desktopAudioCheckbox"> Include Desktop Audio
+        </label>
+
+        <hr>
+
+        <h2>Microphone Audio</h2>
+        <button onclick="startMicrophone()">Start Microphone</button>
+        <button onclick="stopMicrophone()">Stop Microphone</button>
+        <hr>
+
+        <button onclick="startStreaming()">Start Streaming</button>
+        <button onclick="stopStreaming()">Stop Streaming</button>
+    </div>
     
     <script>
+        let desktopAudioIncluded = false;
+        let microphoneStream;
+        let audioContext = new (window.AudioContext || window.webkitAudioContext)();
         let peerConnection;
         let database;
 
@@ -51,6 +60,11 @@
             const configuration = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
             peerConnection = new RTCPeerConnection(configuration);
 
+            // Add microphone stream to peer connection
+            if (microphoneStream) {
+                microphoneStream.getTracks().forEach(track => peerConnection.addTrack(track, microphoneStream));
+            }
+
             // Handle ICE candidate events
             peerConnection.onicecandidate = event => {
                 if (event.candidate) {
@@ -59,35 +73,57 @@
                 }
             };
 
-            // Handle track event to receive audio stream
-            peerConnection.ontrack = event => {
-                const audioElement = document.getElementById('receivedAudio');
-                audioElement.srcObject = event.streams[0];
-            };
-
-            // Get the offer from Firebase
-            database.ref('offer').once('value').then(snapshot => {
-                const offer = JSON.parse(snapshot.val());
-                peerConnection.setRemoteDescription(new RTCSessionDescription(offer))
-                    .then(() => peerConnection.createAnswer())
-                    .then(answer => peerConnection.setLocalDescription(answer))
-                    .then(() => {
-                        database.ref('answer').set(JSON.stringify(peerConnection.localDescription));
-                        console.log('Answer created:', peerConnection.localDescription);
-                    })
-                    .catch(error => {
-                        console.error('Error creating answer:', error);
-                    });
-            });
-
-            // Listen for ICE candidates from the streamer
-            database.ref('candidates').on('child_added', snapshot => {
-                const candidate = new RTCIceCandidate(JSON.parse(snapshot.val()));
-                peerConnection.addIceCandidate(candidate);
-            });
+            // Create offer to start communication
+            peerConnection.createOffer()
+                .then(offer => peerConnection.setLocalDescription(offer))
+                .then(() => {
+                    database.ref('offer').set(JSON.stringify(peerConnection.localDescription));
+                    console.log('Offer created:', peerConnection.localDescription);
+                })
+                .catch(error => {
+                    console.error('Error creating offer:', error);
+                });
         }
 
-        initializeWebRTC();
+        function startMicrophone() {
+            navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(stream => {
+                    microphoneStream = stream;
+                    console.log('Microphone access granted');
+                })
+                .catch(error => {
+                    console.error('Error accessing microphone:', error);
+                });
+        }
+
+        function stopMicrophone() {
+            if (microphoneStream) {
+                microphoneStream.getTracks().forEach(track => track.stop());
+                console.log('Microphone stopped');
+            }
+        }
+
+        function playAudio(filename) {
+            let audio = new Audio(filename);
+            audio.play();
+        }
+
+        function startStreaming() {
+            initializeWebRTC();
+        }
+
+        function stopStreaming() {
+            if (peerConnection) {
+                peerConnection.close();
+                database.ref('offer').remove();
+                database.ref('candidates').remove();
+                console.log('Streaming stopped');
+            }
+        }
+
+        document.getElementById('desktopAudioCheckbox').addEventListener('change', function() {
+            desktopAudioIncluded = this.checked;
+        });
     </script>
 </body>
 </html>
