@@ -1,104 +1,39 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SoundLink+ Receiver</title>
-    <style>
-        body {
-            margin: 0;
-            overflow: hidden;
-        }
-        .background {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: -1;
-            background-image: url('your-background-image.gif');
-            background-size: cover;
-            background-position: center;
-        }
-    </style>
-    <script src="https://www.gstatic.com/firebasejs/9.2.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.2.0/firebase-database-compat.js"></script>
+    <title>Audio Streaming from OBS</title>
 </head>
 <body>
-    <div class="background"></div>
-    <h1>Audio Receiver</h1>
+    <h1>Audio Streaming from OBS</h1>
+    <audio id="remoteAudio" autoplay controls></audio>
     
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-app.js";
-        import { getDatabase, ref, onValue, set, push } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-database.js";
-
-        const firebaseConfig = {
-            apiKey: "AIzaSyAo1x1x1F-zZU5uZDgg24N4gVCL9Xl9QmA",
-            authDomain: "soundlink-plus.firebaseapp.com",
-            projectId: "soundlink-plus",
-            storageBucket: "soundlink-plus.appspot.com",
-            messagingSenderId: "930608446048",
-            appId: "1:930608446048:web:dc7ae85f5a60d60bc96105",
-            measurementId: "G-007FXMK57J"
-        };
-
-        const app = initializeApp(firebaseConfig);
-        const database = getDatabase(app);
-
+    <script>
+        // WebRTC setup
         let peerConnection;
+        let remoteStream = new MediaStream();
+        let remoteAudio = document.getElementById('remoteAudio');
 
-        function initializeWebRTC() {
-            const configuration = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
-            peerConnection = new RTCPeerConnection(configuration);
+        async function startStream() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                remoteStream.addTrack(stream.getAudioTracks()[0]);
 
-            // Handle track events
-            peerConnection.ontrack = event => {
-                const audioElement = document.createElement('audio');
-                audioElement.srcObject = event.streams[0];
-                audioElement.play();
-                document.body.appendChild(audioElement);
-            };
+                // Update audio element with remote stream
+                remoteAudio.srcObject = remoteStream;
 
-            // Retrieve and set the offer
-            const offerRef = ref(database, 'offer');
-            onValue(offerRef, snapshot => {
-                const offer = snapshot.val();
-                if (offer) {
-                    peerConnection.setRemoteDescription(new RTCSessionDescription(JSON.parse(offer)))
-                        .then(() => peerConnection.createAnswer())
-                        .then(answer => peerConnection.setLocalDescription(answer))
-                        .then(() => {
-                            const answerRef = ref(database, 'answer');
-                            set(answerRef, JSON.stringify(peerConnection.localDescription));
-                        })
-                        .catch(error => {
-                            console.error('Error processing offer:', error);
-                        });
-                }
-            });
+                // Create peer connection
+                peerConnection = new RTCPeerConnection();
 
-            // Retrieve and add ICE candidates
-            const candidatesRef = ref(database, 'candidates');
-            onValue(candidatesRef, snapshot => {
-                snapshot.forEach(childSnapshot => {
-                    const candidate = JSON.parse(childSnapshot.val());
-                    peerConnection.addIceCandidate(new RTCIceCandidate(candidate))
-                        .catch(error => {
-                            console.error('Error adding ICE candidate:', error);
-                        });
-                });
-            });
-
-            // Send ICE candidates to the database
-            peerConnection.onicecandidate = event => {
-                if (event.candidate) {
-                    const candidatesRef = ref(database, 'receiverCandidates');
-                    push(candidatesRef, JSON.stringify(event.candidate));
-                }
-            };
+                // Add remote stream to peer connection
+                peerConnection.addStream(stream);
+            } catch (error) {
+                console.error('Error accessing media devices: ', error);
+            }
         }
 
-        initializeWebRTC();
+        startStream();
     </script>
 </body>
 </html>
