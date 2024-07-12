@@ -3,37 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Audio Streaming from OBS</title>
+    <title>Cleanfeed Audio Stream</title>
 </head>
 <body>
-    <h1>Audio Streaming from OBS</h1>
-    <audio id="remoteAudio" autoplay controls></audio>
-    
-    <script>
-        // WebRTC setup
-        let peerConnection;
-        let remoteStream = new MediaStream();
-        let remoteAudio = document.getElementById('remoteAudio');
-
-        async function startStream() {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                remoteStream.addTrack(stream.getAudioTracks()[0]);
-
-                // Update audio element with remote stream
-                remoteAudio.srcObject = remoteStream;
-
-                // Create peer connection
-                peerConnection = new RTCPeerConnection();
-
-                // Add remote stream to peer connection
-                peerConnection.addStream(stream);
-            } catch (error) {
-                console.error('Error accessing media devices: ', error);
-            }
-        }
-
-        startStream();
-    </script>
+    <!-- Cleanfeed Embed Code -->
+    <iframe src="https://cleanfeed.net/studio?soundlinkplus" style="width: 100%; height: 100vh; border: none;"></iframe>
 </body>
 </html>
