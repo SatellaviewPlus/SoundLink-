@@ -3,30 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SoundLink+</title>
+    <title>MyRadioStream Player</title>
 </head>
 <body>
-    <h1>Audio Streaming</h1>
+    <h1>Listen to Our Radio</h1>
     
-    <audio id="audioPlayer" controls></audio>
-    
-    <script>
-        const audioPlayer = document.getElementById('audioPlayer');
-        
-        function startStreaming() {
-            const streamUrl = 'http://s6.myradiostream.com:49326/'; // Replace with your My Radio Stream URL
-            
-            // Create an audio source with the stream URL
-            audioPlayer.src = streamUrl;
-            
-            // Handle errors
-            audioPlayer.onerror = function(event) {
-                console.error('Error playing audio:', event);
-            };
-        }
-        
-        // Call the function to start streaming when the page loads
-        window.onload = startStreaming;
-    </script>
+    <!-- Replace with your MyRadioStream embed code or stream URL -->
+    <script src="//myradiostream.com/embed/SoundLinkPlus"></script>
 </body>
 </html>
